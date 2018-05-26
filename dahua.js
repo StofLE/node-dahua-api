@@ -653,10 +653,10 @@ dahua.prototype.generateFilename = function( device, channel, start, end, filety
   // to be done: LOCALIZATION ?
   startDate = moment(start);
   
-  filename += startDate.format('YYYYMMDDhhmmss');
+  filename += startDate.format('YYYYMMDDHHmmss');
   if(end) {
     endDate = moment(end);
-    filename += '_' + endDate.format('YYYYMMDDhhmmss');
+    filename += '_' + endDate.format('YYYYMMDDHHmmss');
   }
   filename += '.' + filetype;
 

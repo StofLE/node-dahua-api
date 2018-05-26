@@ -173,5 +173,6 @@ dahua.on('error', function(error){  });
 ## More Info:
 * Support & Discussion: https://www.ipcamtalk.com/showthread.php/9004-NodeJS-Module-node-dahua-api?p=80111
 * Dahua API Documentation: https://www.telecamera.ru/bitrix/components/bitrix/forum.interface/show_file.php?fid=1022477&action=download
+
 ## About:
 By: Ryan Hunt
