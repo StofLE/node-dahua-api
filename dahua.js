@@ -612,35 +612,60 @@ dahua.prototype.saveFile = function (file,filename) {
 
 dahua.prototype.getSnapshot = function (options) {
   var self = this;
+  var opts = {};
 
   if(options === undefined) {
     var options = {};
   }
 
-  if ((!options.channel)) {
-    options.channel = 0;
-  }
+  opts.channel = options.channel || 0;
+  opts.path = options.path || '';
+  opts.filename = options.filename || this.generateFilename(HOST,opts.channel,moment(),'','jpg');
+  
+  var responseBody = [];
+  var responseHeaders = [];
 
-  if ((!options.path)) {
-    options.path = '';
-  }
+  var saveTo = path.join(opts.path,opts.filename);
+  var file = fs.createWriteStream(saveTo);
+  
+  var ropts = {
+    'uri' : BASEURI + '/cgi-bin/snapshot.cgi?' + opts.channel,
+    'headers': {
+      "Connection": "keep-alive"
+    }
+  };
 
-  if (!options.filename) {
-    options.filename = this.generateFilename(HOST,options.channel,moment(),'','jpg');
-  }
-
-  request(BASEURI + '/cgi-bin/snapshot.cgi?' + options.channel , function (error, response, body) {
-    if ((error) || (response.statusCode !== 200)) {
-      self.emit("error", 'ERROR ON SNAPSHOT');
-    } 
+  request(ropts)
+  .auth(USER,PASS,false)
+  .on('data', (chunk) => {
+    responseBody.push(chunk); 
+  })
+  .on('response',function (response) {
+    responseHeaders = response.headers;
   })
   .on('end',function(){
-    if(TRACE) console.log('SNAPSHOT SAVED');
+    responseBody = Buffer.concat(responseBody);
+    responseBodyLength = Buffer.byteLength(responseBody);
+
+    // check if content-length header matches actual recieved length and write file
+    if( responseHeaders['content-length'] != responseBodyLength) {
+      self.emit("getSnapshot", "WARNING content-length missmatch" );
+    }
+
     self.emit("getSnapshot", {
     'status':'DONE',});
   })
-  .auth(USER,PASS,false).pipe(fs.createWriteStream(path.join(options.path,options.filename)));
-  // TBD: file writing error handling
+  .on('error',function(error){
+    self.emit("error", 'ERROR ON SNAPSHOT - ' + error );
+    try {
+         file.end(function() {
+            fs.unlinkSync(saveTo);
+        });
+    } catch(e) {
+        console.log(e.message);
+    }
+  })
+  .pipe(file);
 
 };
 
