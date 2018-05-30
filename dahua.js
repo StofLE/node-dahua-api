@@ -622,18 +622,30 @@ dahua.prototype.getSnapshot = function (options) {
   opts.path = options.path || '';
   opts.filename = options.filename || this.generateFilename(HOST,opts.channel,moment(),'','jpg');
   
-  var responseBody = [];
-  var responseHeaders = [];
-
   var saveTo = path.join(opts.path,opts.filename);
+  var deletefile = false;
+  
   var file = fs.createWriteStream(saveTo);
   
+  file.on('close',()=> {
+    if(deletefile) {
+      self.emit("getSnapshot", { 'status':"FAIL 0 byte recieved." });
+      console.log('del: ',saveTo);
+      fs.unlink(saveTo, (err) => {
+        if (err) throw err;
+      });
+    }
+  });
+
   var ropts = {
     'uri' : BASEURI + '/cgi-bin/snapshot.cgi?' + opts.channel,
-    'headers': {
-      "Connection": "keep-alive"
-    }
+    // 'headers': {
+    //   "Connection": "keep-alive"
+    // }
   };
+
+  var responseBody = [];
+  var responseHeaders = [];
 
   request(ropts)
   .auth(USER,PASS,false)
@@ -643,29 +655,29 @@ dahua.prototype.getSnapshot = function (options) {
   .on('response',function (response) {
     responseHeaders = response.headers;
   })
+  .on('error',function(error){
+    self.emit("error", 'ERROR ON SNAPSHOT - ' + error.code );
+    deletefile = true;
+    file.close();
+  })
   .on('end',function(){
     responseBody = Buffer.concat(responseBody);
     responseBodyLength = Buffer.byteLength(responseBody);
 
-    // check if content-length header matches actual recieved length and write file
+    // check if content-length header matches actual recieved length
     if( responseHeaders['content-length'] != responseBodyLength) {
       self.emit("getSnapshot", "WARNING content-length missmatch" );
     }
-
-    self.emit("getSnapshot", {
-    'status':'DONE',});
-  })
-  .on('error',function(error){
-    self.emit("error", 'ERROR ON SNAPSHOT - ' + error );
-    try {
-         file.end(function() {
-            fs.unlinkSync(saveTo);
-        });
-    } catch(e) {
-        console.log(e.message);
+    
+    // console.log(responseHeaders);
+    if(responseHeaders.connection == 'close') {
+      deletefile = true;
+      file.close();
+    } else {
+      self.emit("getSnapshot", {'status':'DONE',});
     }
-  })
-  .pipe(file);
+
+  }).pipe(file);
 
 };
 
