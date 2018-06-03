@@ -627,10 +627,10 @@ dahua.prototype.getSnapshot = function (options) {
   
   var file = fs.createWriteStream(saveTo);
   
-  file.on('close',()=> {
+  file.on('finish',()=> {
     if(deletefile) {
-      self.emit("getSnapshot", { 'status':"FAIL 0 byte recieved." });
-      console.log('del: ',saveTo);
+      self.emit("getSnapshot", { 'status':"FAIL ECONNRESET or 0 byte recieved." });
+      console.log(moment().format(),'FAIL ECONNRESET or 0 byte recieved. Deleting ',saveTo);
       fs.unlink(saveTo, (err) => {
         if (err) throw err;
       });
@@ -639,9 +639,6 @@ dahua.prototype.getSnapshot = function (options) {
 
   var ropts = {
     'uri' : BASEURI + '/cgi-bin/snapshot.cgi?' + opts.channel,
-    // 'headers': {
-    //   "Connection": "keep-alive"
-    // }
   };
 
   var responseBody = [];
@@ -655,11 +652,6 @@ dahua.prototype.getSnapshot = function (options) {
   .on('response',function (response) {
     responseHeaders = response.headers;
   })
-  .on('error',function(error){
-    self.emit("error", 'ERROR ON SNAPSHOT - ' + error.code );
-    deletefile = true;
-    file.close();
-  })
   .on('end',function(){
     responseBody = Buffer.concat(responseBody);
     responseBodyLength = Buffer.byteLength(responseBody);
@@ -669,15 +661,27 @@ dahua.prototype.getSnapshot = function (options) {
       self.emit("getSnapshot", "WARNING content-length missmatch" );
     }
     
-    // console.log(responseHeaders);
-    if(responseHeaders.connection == 'close') {
+    // empty?
+    if(responseHeaders['content-length'] == 0 ) {
+      console.log(moment().format(),'NOT OK content-length 0');
       deletefile = true;
-      file.close();
+      file.end();
+    
     } else {
+
+      // console.log(moment().format(),'OK content-length',responseBodyLength);
+      deletefile = false;
       self.emit("getSnapshot", {'status':'DONE',});
+    
     }
 
-  }).pipe(file);
+  })
+  .on('error',function(error){
+    self.emit("error", 'ERROR ON SNAPSHOT - ' + error.code );
+    deletefile = true;
+    file.end();
+  })
+  .pipe(file);
 
 };
 
