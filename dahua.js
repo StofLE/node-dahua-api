@@ -14,6 +14,7 @@ var moment = require('moment');
 
 var TRACE   = true;
 var BASEURI   = false;
+var datainfo = false;
 
 var dahua = function(options) {
   
@@ -25,6 +26,7 @@ var dahua = function(options) {
   USER = options.user;
   PASS = options.pass;
   HOST = options.host;
+  EVENTS = options.events;
 
   if( options.cameraAlarms === undefined ) {
     options.cameraAlarms = true;
@@ -46,7 +48,7 @@ dahua.prototype.connect = function(options) {
     var self = this;
 
     var opts = { 
-      'url' : BASEURI + '/cgi-bin/eventManager.cgi?action=attach&codes=[AlarmLocal,VideoMotion,VideoLoss,VideoBlind]',
+      'url': BASEURI + '/cgi-bin/eventManager.cgi?action=attach&codes=[' + EVENTS + ']',
       'forever' : true,
       'headers': {'Accept':'multipart/x-mixed-replace'}
     };
@@ -96,7 +98,8 @@ function handleDahuaEventData(self, data) {
       var code = alarm[0].substr(5);
       var action = alarm[1].substr(7);
       var index = alarm[2].substr(6);
-      self.emit("alarm", code,action,index);
+      datainfo = alarm[3].substr(5);
+      self.emit("alarm", code,action,index,datainfo);
     }
   });
 }
